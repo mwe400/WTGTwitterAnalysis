@@ -1,0 +1,12 @@
+
+#plot the large network
+
+g2 %>%
++   activate(nodes) %>%
++   mutate(centrality = centrality_betweenness()) %>% 
++   ggraph(layout = "graphopt") + 
++   geom_edge_link(width = 1, colour = "lightgray") +
++   geom_node_point(aes(size = centrality, colour = centrality)) +
++   geom_node_text(aes(label = media), repel = TRUE)+
++   scale_color_gradient(low = "yellow", high = "red")+
++   theme_graph()
