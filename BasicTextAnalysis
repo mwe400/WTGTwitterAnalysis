@@ -1,3 +1,15 @@
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+# text mining library
+library(tidytext)
+library(tm)
+# coupled words analysis
+library(widyr)
+# plotting packages
+library(igraph)
+library(ggraph)
+
 
 #plot the large network
 
@@ -10,3 +22,98 @@ g2 %>%
 +   geom_node_text(aes(label = media), repel = TRUE)+
 +   scale_color_gradient(low = "yellow", high = "red")+
 +   theme_graph()
+
+
+wtg_tweets <- read.csv(file.choose())
+
+head(wtg_tweets)
+
+tweet_data <- data.frame(date_time = wtg_tweets$created_at,
++                          username = wtg_tweets$user_screen_name,
++                          tweet_text = wtg_tweets$text)
+
+
+tweet_data2 <- tweet_data %>%
++   mutate(date_time = as.POSIXct(date_time, format = "%a %b %d %H:%M:%S +0000 %Y"))
+
+
+tweet_data_messages <- tweet_data2 %>%
++   dplyr::select(tweet_text) %>%
++   unnest_tokens(word, tweet_text)
+
+options(stringsAsFactors = FALSE)
+
+ tweet_data_messages_clean <- tweet_data_messages %>%
++   anti_join(stop_words) %>%
++   filter(!word == "rt")
+Joining, by = "word"
+
+ tweet_data_messages_clean %>%
+  count(word, sort = TRUE) %>%
+  top_n(15) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(x = word, y = n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+      labs(x = "Count",
+      y = "Unique words",
+      title = "Count of unique words found in tweets")
+      
+tweet_data_messages_clean <- tweet_data %>%
++   mutate(date_time = as.POSIXct(date_time, format = "%a %b %d %H:%M:%S +0000 %Y"),
++          tweet_text = gsub("\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)", 
++                            "", tweet_text)) %>% 
++   dplyr::select(tweet_text) %>%
++   unnest_tokens(word, tweet_text) %>% 
++   anti_join(stop_words) %>%
++   filter(!word == "rt") # remove all rows that contain "rt" or retweet
+
+tweet_data_messages_paired <- tweet_data %>%
++   dplyr::select(tweet_text) %>%
++   mutate(tweet_text = removeWords(tweet_text, stop_words$word)) %>%
++   mutate(tweet_text = gsub("\\brt\\b|\\bRT\\b", "", tweet_text)) %>%
++   mutate(tweet_text = gsub("http://*", "", tweet_text)) %>%
++   unnest_tokens(paired_words, tweet_text, token = "ngrams", n = 2)
+
+tweet_data_messages_paired %>%
++   count(paired_words, sort = TRUE)
+
+
+tweet_data_messages_seaprated <- tweet_data_messages_paired %>%
++   separate(paired_words, c("word1", "word2"), sep = " ")
+
+tweet_data_messages_counts <- tweet_data_messages_seaprated %>%
++   count(word1, word2, sort = TRUE)
+
+tweet_data_messages_counts  %>%
++         filter(n >= 150) %>%
++         graph_from_data_frame() %>%
++         ggraph(layout = "fr") +
++         # geom_edge_link(aes(edge_alpha = n, edge_width = n)) +
++         geom_node_point(color = "darkslategray4", size = 3) +
++         geom_node_text(aes(label = name), vjust = 1.8, size = 3) +
++         labs(title = "2020 Tweets in NJ related to Adolescent Depression Screening",
++              x = "", y = "") +
++         theme_void()
+
+#timestamp histogram
+date <- tweet_data2$date_time
+pDates<-as.POSIXct(date,format="%H:%M:%S") 
+hist(pDates,"hours") 
+
+
+#plot the large network (attempt #1)
+
+graph_attr(g2, "layout") <- layout_with_lgl(
++   g2,
++   maxiter = 150,
++   maxdelta = vcount(g2),
++   area = vcount(g2)^2,
++   coolexp = 1.5,
++   repulserad = area * vcount(g2),
++   cellsize = sqrt(sqrt(area)),
++   root = NULL
++ )
+
+plot(net)
