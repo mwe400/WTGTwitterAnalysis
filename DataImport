@@ -1,1 +1,29 @@
 
+library(tidyverse)
+library(rtweet)
+
+twitter <- read.csv(file.choose())
+twitter2 <- filter(twitter, in_reply_to_screen_name %in% user_screen_name)
+net <- twitter2 %>% 
++   group_by(user_screen_name) %>% 
++   mutate(count = n()) %>% 
++   ungroup() %>% 
++   filter(count > 1)
+
+library(tidygraph)
+library(ggraph)
+
+#select a subset
+
+g2 <- twitter2 %>% 
++   select(user_screen_name, in_reply_to_screen_name) %>%  # drop the count column
++   as_tbl_graph(directed = F) %>%  # make undirected
++   activate(nodes) %>% 
++   mutate(centrality = centrality_betweenness())
+
+#and plot the network
+
+ggraph(g2) +
++   geom_edge_link() +
++   geom_node_point(aes(size = centrality, colour = centrality)) +
++   theme_graph()
